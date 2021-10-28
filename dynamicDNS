@@ -1,0 +1,28 @@
+#!/bin/bash
+
+email="adambekkum@gmail.com"
+zoneidentifier="b3adc1348afff18adf2d8b1250416647e"
+identifier="037e952ea4b7208475d66fcd79c7dc4e7"
+cfauthkey="b998153ad4765d5fed80d8290163ee2299ab7d"
+
+myip=`curl -s "https://api.ipify.org"`
+
+dnsdata=$(curl --location --request GET 'https://api.cloudflare.com/client/v4/zones/'$zoneidentifier'/dns_records/'$identifier'' \
+--header 'X-Auth-Email: '"$email"'' \
+--header 'X-Auth-Key: '"$cfauthkey"'' \
+--header 'Content-Type: application/json' \
+--header 'Cookie: __cflb=0H28vgHxwvgAQtjUGU4vq74ZFe3sNVUZPs4A6GuXhCR; __cfruid=4401ea4891118dccfa2999a7c16ec683952b4647-1634327669')
+
+cfip=$( jq -r  '.result.content' <<< $dnsdata ) 
+dnsname=$( jq -r  '.result.name' <<< $dnsdata ) 
+
+if [ "$cfip" != "$myip" -a "$myip" != "" -a "$myip" != "*ERROR*" ]; then
+  echo "IP has changed!! Updating on Cloudflare"
+  curl --location --request PUT 'https://api.cloudflare.com/client/v4/zones/'$zoneidentifier'/dns_records/'$identifier'' \
+  --header 'X-Auth-Email: '"$email"'' \
+  --header 'X-Auth-Key: '"$cfauthkey"'' \
+  --header 'Content-Type: application/json' \
+  --header 'Cookie: __cflb=0H28vgHxwvgAQtjUGU4vq74ZFe3sNVUZPs4A6GuXhCR; __cfruid=4401ea4891118dccfa2999a7c16ec683952b4647-1634327669' \
+  --data-raw '{"type":"A","name":"'$dnsname'","content":"'$myip'","ttl":3600,"proxied":true}'
+  echo "Updated IP on $dnsname from $cfip to $myip" | mail -F "6087382810@vtext.com" -s "Bekkum HQ IP Address Updated"
+fi
